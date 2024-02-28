@@ -6,36 +6,33 @@
 .end_macro
 
 .macro getc %reg
-	syscall 12
+	syscall 0xC
 	mv %reg, a0
 	li a0, 0
+	
+	andi %reg, %reg, 0xFF
 .end_macro
 
 .macro putc %reg
 	mv a0, %reg
-	syscall 11
+	syscall 0xB
 .end_macro
 
 .macro putc_imm %char
 	li a0, %char
-	syscall 11
+	syscall 0xB
 .end_macro
 
 .macro exit %code
 	li a0, %code
-	syscall 93
+	syscall 0x5D
 .end_macro
 
 .macro set_zero %reg
 	xor %reg, %reg, %reg
 .end_macro
 
-main:
-	# Order of actions:
-	# 1) Read number (check that every char is a hex digit, otherwise - exit)
-	# 2) Read operation (check that operation is {+, -, |, &}
-	# 3) Read another number
-
+MAIN:
 	call READ_NUMBER
 	mv a1, a0
 
@@ -46,7 +43,7 @@ main:
 	mv a1, a0
 
 	putc_imm 0xA
-
+	
 	call PRINT_NUMBER
 	
 	exit 0
@@ -59,9 +56,6 @@ READ_NUMBER:
 
 	.INPUT_LOOP:
 	getc t1
-	
-	# Applying bitmask (to remove garbage in high-bits register)
-	andi t1, t1, 0xFF
 
 	# Make our auxiliary registers be empty
 	set_zero t2
@@ -70,11 +64,12 @@ READ_NUMBER:
 	set_zero t5
 
 	bne t1, t6, .CONVERT
+	# Moving our number into a0 register (return)
 	mv a0, t0
 	ret
 
 	.CONVERT:
-	addi t2, t1, -0x30	
+	addi t2, t1, -0x30
 	addi t3, t1, -0x41
 
 	# In t3/t4 we have flags which indicate our number is from 0 to 9 or from A to F
@@ -84,7 +79,7 @@ READ_NUMBER:
 	# Adding 0xA to t3 'cause t3 indicates for A-F, and value range should be same
 	addi t3, t3, 0xA
 
-	# Checking that symbol is a hex digit
+	# Checking that symbol is a hex digit (t3 or t4 flag has to be 1 aka true)
 	xor t1, t4, t5
 	beqz t1, ERROR
 
@@ -93,26 +88,28 @@ READ_NUMBER:
 	# 0x000001 => 0x001111
 	# We will use this registers as a mask
 
+	# I'll use a5/a6 registers
+
 	mv a5, t4
 	mv a6, t5
 
 	slli t4, t4, 0x1
 	slli t5, t5, 0x1
-	add t4, t4, a1
-	add t5, t5, a2
+	add t4, t4, a5
+	add t5, t5, a6
 
 	slli t4, t4, 0x1
 	slli t5, t5, 0x1
-	add t4, t4, a1
-	add t5, t5, a2
-	
+	add t4, t4, a5
+	add t5, t5, a6
+
 	slli t4, t4, 0x1
 	slli t5, t5, 0x1
-	add t4, t4, a1
-	add t5, t5, a2
+	add t4, t4, a5
+	add t5, t5, a6
 	
-	set_zero a1
-	set_zero a2
+	set_zero a5
+	set_zero a6
 	
 	# Apply this masks
 	and t2, t2, t4
@@ -142,7 +139,7 @@ OPERATION:
 	beq t0, t3, .OR
 	beq t0, t4, .AND
 
-	call ERROR
+	exit 1
 
 	.ADD:
 	add a0, a1, a2
@@ -162,33 +159,33 @@ OPERATION:
 
 PRINT_NUMBER:
 	mv t0, a1
-	
+
 	# Loop counter and decrement
 	li t2, 0x1C
-	li t3, 0x4
-	
+
 	# Constant = ('9' + 1)
-	li t5, 0x3A
-	
+	li t3, 0x3A
+
 	# Organizing do-while loop
 
-	.PRINTING_LOOP:
+	.OUTPUT_LOOP:
 	set_zero t1
 	srl t1, t0, t2
 
+	# Adding '0' to our number
 	andi t1, t1, 0xF
 	addi t1, t1, 0x30
 
-	# Correction for symbols A-F
-	blt t1, t5, .PRINT
+	blt t1, t3, .PRINT
+
+	# If needed, add this constant to our number
 	addi t1, t1, 0x7
 
 	.PRINT:
 	putc t1
 
-	# decreasing counter
-	sub t2, t2, t3
-	bgez t2, .PRINTING_LOOP
+	addi t2, t2, -0x4
+	bgez t2, .OUTPUT_LOOP
 
 	ret
 
