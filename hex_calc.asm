@@ -9,7 +9,7 @@
 	syscall 0xC
 	mv %reg, a0
 	li a0, 0
-	
+
 	andi %reg, %reg, 0xFF
 .end_macro
 
@@ -34,16 +34,19 @@
 
 MAIN:
 	call READ_NUMBER
-	mv a1, a0
+	mv s0, a0
 
 	call READ_NUMBER
-	mv a2, a0
+	mv s1, a0
 
+	mv a1, s0
+	mv a2, s1
 	call OPERATION
-	mv a1, a0
+	mv s0, a0
 
 	putc_imm 0xA
-	
+
+	mv a1, s0
 	call PRINT_NUMBER
 	
 	exit 0
@@ -56,12 +59,6 @@ READ_NUMBER:
 
 	.INPUT_LOOP:
 	getc t1
-
-	# Make our auxiliary registers be empty
-	set_zero t2
-	set_zero t3
-	set_zero t4
-	set_zero t5
 
 	bne t1, t6, .CONVERT
 	# Moving our number into a0 register (return)
@@ -88,29 +85,26 @@ READ_NUMBER:
 	# 0x000001 => 0x001111
 	# We will use this registers as a mask
 
-	# I'll use a5/a6 registers
+	# I'll use a1/a2 registers
 
-	mv a5, t4
-	mv a6, t5
-
-	slli t4, t4, 0x1
-	slli t5, t5, 0x1
-	add t4, t4, a5
-	add t5, t5, a6
+	mv a1, t4
+	mv a2, t5
 
 	slli t4, t4, 0x1
 	slli t5, t5, 0x1
-	add t4, t4, a5
-	add t5, t5, a6
+	add t4, t4, a1
+	add t5, t5, a2
 
 	slli t4, t4, 0x1
 	slli t5, t5, 0x1
-	add t4, t4, a5
-	add t5, t5, a6
-	
-	set_zero a5
-	set_zero a6
-	
+	add t4, t4, a1
+	add t5, t5, a2
+
+	slli t4, t4, 0x1
+	slli t5, t5, 0x1
+	add t4, t4, a1
+	add t5, t5, a2
+
 	# Apply this masks
 	and t2, t2, t4
 	and t3, t3, t5
@@ -138,7 +132,7 @@ OPERATION:
 	beq t0, t2, .SUB
 	beq t0, t3, .OR
 	beq t0, t4, .AND
-
+	
 	exit 1
 
 	.ADD:
@@ -178,7 +172,7 @@ PRINT_NUMBER:
 
 	blt t1, t3, .PRINT
 
-	# If needed, add this constant to our number
+	# If needed, add this constant to our number (kind of hex-bias)
 	addi t1, t1, 0x7
 
 	.PRINT:
