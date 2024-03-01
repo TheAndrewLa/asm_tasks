@@ -85,25 +85,13 @@ READ_NUMBER:
 	# 0x000001 => 0x001111
 	# We will use this registers as a mask
 
-	# I'll use a1/a2 registers
+	slli t4, t4, 0x1F
+	srai t4, t4, 0x1F
+	andi t4, t4, 0xF
 
-	mv a1, t4
-	mv a2, t5
-
-	slli t4, t4, 0x1
-	slli t5, t5, 0x1
-	add t4, t4, a1
-	add t5, t5, a2
-
-	slli t4, t4, 0x1
-	slli t5, t5, 0x1
-	add t4, t4, a1
-	add t5, t5, a2
-
-	slli t4, t4, 0x1
-	slli t5, t5, 0x1
-	add t4, t4, a1
-	add t5, t5, a2
+	slli t5, t5, 0x1F
+	srai t5, t5, 0x1F
+	andi t4, t4, 0xF
 
 	# Apply this masks
 	and t2, t2, t4
