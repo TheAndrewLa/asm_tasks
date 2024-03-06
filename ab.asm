@@ -1,15 +1,5 @@
 .text
 
-.macro push_reg %reg
-	addi sp, sp, -0x4
-	sw %reg, (sp)
-.end_macro
-
-.macro pop_reg %reg
-	lw %reg, 0x0(sp)
-	addi sp, sp, 0x4
-.end_macro
-
 .macro syscall %code
 	li a7, %code
 	ecall
@@ -29,14 +19,9 @@
 	syscall 0xB
 .end_macro
 
-.macro putc_imm %imm
-	li a0, %imm
-	syscall 0xB
-.end_macro
-
 main:
-	li s1, 0xA
-	li s2, 0xA
+	li s1, 0x5
+	li s2, 0x32 # 5 * 50 = 250 = 0xFA
 
 	mv a1, s1
 	mv a2, s2
@@ -49,37 +34,33 @@ main:
 	exit 0
 
 multiply:
-	li t0, 0x0
-	mv t1, a1
-	mv t2, a2
+	set_zero a0
 
+	# Loop counter
 	li t3, 0x1F
 
 	.LOOP:
+	set_zero t1
+	set_zero t2
 
-	set_zero t4
-	set_zero t5
-	set_zero t6
+	srl t1, a2, t3
+	andi t1, t1, 0x1
 
-	srl t4, t2, t3
-	andi t4, t4, 0x1
+	# Convert t4: (0x0, 0x1) -> (0x00000000, 0xFFFFFFFF)
+	slli t1, t1, 0x1F
+	srai t1, t1, 0x1F
 
-	# Convert t4 from {0, 1} to {0x00000000, 0xFFFFFFFF}
-	slli t4, t4, 0x1F
-	srai t4, t4, 0x1F
-
-	# Calculating a*2^(b_i)
-	sll t5, t1, t3
-	and t5, t5, t4
+	# Calculating a*2^(b_i), it's shifting a by position of a bit
+	sll t2, a1, t3
+	and t2, t2, t1
 
 	# Add result
-	add t0, t0, t5
+	add a0, a0, t2
 
 	# Decrement and loop condition
 	addi t3, t3, -0x1
 	bgez t3, .LOOP
 
-	mv a0, t0
 	ret
 
 # From hex_calc task
@@ -106,47 +87,3 @@ print_hex:
 	bgez t2, .OUTPUT_LOOP
 
 	ret
-
-# From hex_calc task
-read_hex:
-	li t6, 0xA
-	set_zero t0
-
-	.INPUT_LOOP:
-	getc t1
-
-	bne t1, t6, .CONVERT
-
-	mv a0, t0
-	ret
-
-	.CONVERT:
-	addi t2, t1, -0x30
-	addi t3, t1, -0x41
-
-	sltiu t4, t2, 0xA
-	sltiu t5, t3, 0x6
-	
-	addi t3, t3, 0xA
-
-	xor t1, t4, t5
-	beqz t1, ERROR
-
-	slli t4, t4, 0x1F
-	srai t4, t4, 0x1F
-	andi t4, t4, 0xF
-
-	slli t5, t5, 0x1F
-	srai t5, t5, 0x1F
-	andi t4, t4, 0xF
-
-	and t2, t2, t4
-	and t3, t3, t5
-
-	mv t1, t2
-	add t1, t1, t3
-
-	slli t0, t0, 0x4
-	add t0, t0, t1
-
-	j .INPUT_LOOP
