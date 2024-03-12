@@ -1,35 +1,52 @@
 .text
 
+.macro push_reg %reg
+	addi sp, sp, -0x4
+	sw %reg, 0x0 (sp)
+.end_macro
+
+.macro pop_reg %reg
+	lw %reg, 0x0 (sp)
+	addi sp, sp, 0x4
+.end_macro
+
 .macro syscall %call
 	li a7, %call
 	ecall
 .end_macro
 
 .macro getc %reg
+	push_reg a0
+
 	syscall 0xC
 	mv %reg, a0
-	li a0, 0
+	
+	pop_reg a0
 
 	andi %reg, %reg, 0xFF
 .end_macro
 
 .macro putc %reg
+	push_reg a0
+	
 	mv a0, %reg
 	syscall 0xB
+	
+	pop_reg a0
 .end_macro
 
 .macro putc_imm %char
+	push_reg a0
+
 	li a0, %char
 	syscall 0xB
+	
+	pop_reg a0
 .end_macro
 
 .macro exit %code
 	li a0, %code
 	syscall 0x5D
-.end_macro
-
-.macro set_zero %reg
-	xor %reg, %reg, %reg
 .end_macro
 
 MAIN:
@@ -54,13 +71,13 @@ MAIN:
 READ_NUMBER:
 	# We keep our number in t0
 	# Storing ret ('\n') symbol in t6 register (to check when to finish)
-	li t6, 0xA
-	set_zero t0
+	li a1, 0xA
+	li t0, 0x0
 
 	.INPUT_LOOP:
 	getc t1
 
-	bne t1, t6, .CONVERT
+	bne t1, a1, .CONVERT
 	# Moving our number into a0 register (return)
 	mv a0, t0
 	ret
@@ -68,38 +85,41 @@ READ_NUMBER:
 	.CONVERT:
 	addi t2, t1, -0x30
 	addi t3, t1, -0x41
+	addi t4, t1, -0x61
 
-	# In t3/t4 we have flags which indicate our number is from 0 to 9 or from A to F
-	sltiu t4, t2, 0xA
-	sltiu t5, t3, 0x6
-	
-	# Adding 0xA to t3 'cause t3 indicates for A-F, and value range should be same
+	li t1, 0x0
+
+	# In t3/t4 we have flags which indicate our number is from 0 to 9 or from A to F or from a to f
+	sltiu a2, t2, 0xA
+	sltiu a3, t3, 0x6
+	sltiu a4, t4, 0x6
+
+	# Adding 0xA to t3 & t4 'cause they indicate for A-F, and value range should be same
 	addi t3, t3, 0xA
+	addi t4, t4, 0xA
 
 	# Checking that symbol is a hex digit (t3 or t4 flag has to be 1 aka true)
-	xor t1, t4, t5
+	add t1, a2, a3
+	add t1, t1, a4
 	beqz t1, ERROR
 
 	# Do converting
 	# 0x000000 => 0x000000
-	# 0x000001 => 0x001111
+	# 0x000001 => 0x111111
 	# We will use this registers as a mask
-
-	slli t4, t4, 0x1F
-	srai t4, t4, 0x1F
-	andi t4, t4, 0xF
-
-	slli t5, t5, 0x1F
-	srai t5, t5, 0x1F
-	andi t4, t4, 0xF
+	
+	neg a2, a2
+	neg a3, a3
+	neg a4, a4
 
 	# Apply this masks
-	and t2, t2, t4
-	and t3, t3, t5
+	and t2, t2, a2
+	and t3, t3, a3
+	and t4, t4, a4
 
 	# Finally, we have entered number in last 4 bits in t1 register
-	mv t1, t2
-	add t1, t1, t3
+	add t1, t2, t3
+	add t1, t1, t4
 
 	slli t0, t0, 0x4
 	add t0, t0, t1
@@ -151,7 +171,7 @@ PRINT_NUMBER:
 	# Organizing do-while loop
 
 	.OUTPUT_LOOP:
-	set_zero t1
+	li t1, 0x0
 	srl t1, t0, t2
 
 	# Adding '0' to our number
