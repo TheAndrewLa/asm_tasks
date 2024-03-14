@@ -54,13 +54,14 @@ div10:
 	push_reg s0
 	
 	# Using this formula:
-	# x/10 = x/8 - ((x/4)/10)
+	# x/10 = (1/2)*(x/4 - ((x/2)/10))
 
-	srai s0, a1, 0x3 # Divide by 8
-	srai a1, a1, 0x2 # Divide by 4
+	srai s0, a1, 0x2 # Divide by 4
+	srai a1, a1, 0x1 # Divide by 2
 	call div10
 
 	sub a0, s0, a0
+ srai a0, a0, 0x1 # Divide by 2
 
 	# Epilog
 	pop_reg s0
